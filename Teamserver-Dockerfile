@@ -1,0 +1,55 @@
+# Havoc Teamserver Dockerfile
+# ------------------------------------------------------------------------------
+# Commands for usage:
+#   Create Data volume for persistence:
+#		`docker volume create havoc-c2-server-volume`
+#	Build image file:
+#		'docker build -t havoc-teamserver -f Teamserver-Dockerfile .'
+#	Run Built Teamserver from Docker container:
+#		`docker run -p40056:40056 -p 443:443 -it -d -v havoc-c2-server-volume:/data havoc-teamserver`
+#		`docker exec -t <container_id> "/go/Build/bin/teamserver"`
+#
+# Extras
+# 	Enter Container:
+#		'docker run exec -it <containerID> bash'
+# ------------------------------------------------------------------------------
+ARG GO_VERSION="1.19.1"
+FROM golang:${GO_VERSION}
+#
+ENV PATH=/root/.local/bin:$PATH
+ENV USER=root
+
+#
+RUN echo > /etc/apt/sources.list\
+    && echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bullseye main contrib non-free" > /etc/apt/sources.list \
+    && echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bullseye-updates main contrib non-free" >> /etc/apt/sources.list \
+    && echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bullseye-backports main contrib non-free" >> /etc/apt/sources.list \
+    && echo "deb http://security.debian.org/debian-security bullseye-security main contrib non-free" >> /etc/apt/sources.list
+
+RUN apt update \
+	&& apt -y install \
+	alien \
+	debhelper \
+	devscripts \
+	golang-go \
+	nasm \
+	mingw-w64 \
+	dh-golang \
+	dh-make \
+	fakeroot \
+	pkg-config \
+	python3-all-dev \
+	python3-pip \
+	rpm \
+	sudo \
+	upx-ucl \
+	&& pip install --upgrade jsonschema
+
+
+# Pull the repo from Github
+RUN git clone -b dev https://github.com/HavocFramework/Havoc.git --depth=1
+#
+# Build the cloned repos copy of the Teamserver-Client  
+RUN cd Havoc/teamserver/ && chmod +x ./Install.sh && ./Install.sh && GO111MODULE="on" go build -ldflags="-s -w -X cmd.VersionCommit=$(git rev-parse HEAD)" -o havoc main.go 
+WORKDIR /go/Havoc
+# CMD /Havoc/teamserver/havoc server --profile /data/demo.profile
